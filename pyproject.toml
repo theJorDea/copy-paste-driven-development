@@ -53,3 +53,12 @@ ignore = [
     "RUF002", # кириллические docstring — ложные срабатывания
     "RUF003", # кириллические комментарии — ложные срабатывания
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]  # аннотации в тестах не несут контракта
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+quote-style = "double"
