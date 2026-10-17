@@ -21,3 +21,7 @@ async def health_check() -> HealthStatusResponse:
 @app.get("/api/v1/version")
 async def get_version() -> VersionResponse:
     return VersionResponse(version=APP_VERSION)
+
+@app.get('/api/v1/health')
+async def health_check_v1() -> HealthStatusResponse:
+    return HealthStatusResponse(status='healthy')
