@@ -1,13 +1,17 @@
+from os import getenv
 from typing import Literal
 
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-type Environment = Literal["development", "production"]
+load_dotenv()
+
+type Environment = Literal["development", "production", 'staging']
 
 
 class DataBaseSettings(BaseModel):
-    database_url: str = "postgresql://USER:PASSWORD@HOST:5432/DATABASE"
+    database_url: str | None = getenv("DATABASE__URL")
     db_pool_min_size: int = Field(default=1, ge=0)
     db_pool_max_size: int = Field(default=10, gt=0)
     db_command_timeout: float = Field(default=5, gt=0)
