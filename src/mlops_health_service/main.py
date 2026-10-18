@@ -3,10 +3,17 @@ from importlib.metadata import version
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from collenctions.abc import AsyncIterator
+from _collections_abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    print("Resource initialized")
+
+    yield
+    print("Resource terminated")
+
+app = FastAPI(lifespan=lifespan)
 APP_VERSION = version("mlops-health-service")
 
 
@@ -19,7 +26,6 @@ class VersionResponse(BaseModel):
 @app.get("/healthz")
 async def health_check() -> HealthStatusResponse:
     return HealthStatusResponse(status='healthy')
-
 
 @app.get("/api/v1/version")
 async def get_version() -> VersionResponse:
