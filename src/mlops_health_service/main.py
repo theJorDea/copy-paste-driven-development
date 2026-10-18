@@ -3,6 +3,9 @@ from importlib.metadata import version
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from collenctions.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 app = FastAPI()
 APP_VERSION = version("mlops-health-service")
 
