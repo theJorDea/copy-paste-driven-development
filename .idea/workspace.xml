@@ -5,7 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5b57a850-e91b-410f-b00a-a09296418ddc" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/src/mlops_health_service/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/mlops_health_service/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/mlops_health_service/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/mlops_health_service/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
