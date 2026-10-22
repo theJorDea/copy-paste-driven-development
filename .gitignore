@@ -15,3 +15,6 @@ htmlcov/
 
 # Local logs
 *.log
+
+# IDE
+.idea/

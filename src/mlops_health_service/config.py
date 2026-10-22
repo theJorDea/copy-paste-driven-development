@@ -1,3 +1,5 @@
+"""Настройки приложения, загружаемые из окружения и локального файла .env."""
+
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -7,6 +9,8 @@ type Environment = Literal["development", "production", "staging"]
 
 
 class DataBaseSettings(BaseModel):
+    """Параметры подключения к PostgreSQL и ограничения пула соединений."""
+
     database_url: str
 
     db_pool_min_size: int = Field(default=0, ge=0)
@@ -15,6 +19,9 @@ class DataBaseSettings(BaseModel):
 
 
 class Settings(BaseSettings):
+    """Конфигурация сервиса; вложенные поля задаются через двойное подчёркивание."""
+
+    # Например, DATABASE__DATABASE_URL задаёт database.database_url.
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore", env_nested_delimiter="__"
     )
