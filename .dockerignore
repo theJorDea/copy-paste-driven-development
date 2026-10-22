@@ -4,7 +4,6 @@
 __pycache__
 .ruff_cache
 .pytest_cache
-htmlcov
 .coverage
 .env
 .env.*
