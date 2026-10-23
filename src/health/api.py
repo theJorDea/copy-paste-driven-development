@@ -21,6 +21,11 @@ async def health_check() -> HealthStatusResponse:
     return HealthStatusResponse(status="healthy")
 
 
+@router.get("/api/v1/ping")
+async def ping() -> dict[str, str]:
+    return {"message": "pong"}
+
+
 @router.get("/api/v1/version")
 async def get_version() -> VersionResponse:
     """Вернуть версию пакета mlops-health-service."""

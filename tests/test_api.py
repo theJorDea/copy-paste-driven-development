@@ -9,6 +9,13 @@ import pytest
 from health import api
 
 
+def test_ping(client):
+    response = client.get("/api/v1/ping")
+
+    assert response.status_code == 200
+    assert response.json() == {"message": "pong"}
+
+
 def test_liveness_does_not_access_database(client, database):
     pool, connection, _ = database
     response = client.get("/healthz")
