@@ -1,5 +1,6 @@
 """Сборка манифеста VisDrone с контрольными суммами и регистрация в MLflow."""
 
+import argparse
 import hashlib
 from pathlib import Path
 
@@ -9,9 +10,16 @@ import mlflow
 
 # Пути привязаны к расположению скрипта, а не к текущей рабочей папке.
 ROOT = Path(__file__).resolve().parents[1]
-DATASET_DIR = ROOT / "data" / "visdrone"
-ANNOTATIONS_DIR = DATASET_DIR / "annotations"
-MANIFEST_PATH = DATASET_DIR / "manifest.csv"
+SPLITS = {
+    "training": {
+        "folder": "visdrone-train",
+        "dataset_name": "visdrone2019-det-train",
+    },
+    "validation": {
+        "folder": "visdrone",
+        "dataset_name": "visdrone2019-det-val",
+    },
+}
 
 # Транспорт — подмножество десяти допустимых категорий VisDrone.
 VEHICLE_CLASSES = {4, 5, 6, 7, 8, 9, 10}
@@ -29,17 +37,20 @@ def sha256_file(path: Path) -> str:
     return hasher.hexdigest()
 
 
-def build_manifest() -> pd.DataFrame:
+def build_manifest(dataset_dir: Path) -> pd.DataFrame:
     """Собрать по строке на изображение: имена файлов, хеши и число объектов."""
     rows = []
     # Стабильный порядок строк нужен для воспроизводимой контрольной суммы CSV.
-    annotations = sorted(ANNOTATIONS_DIR.glob("*.txt"))
+    annotations_dir = dataset_dir / "annotations"
+    annotations = sorted(annotations_dir.glob("*.txt"))
 
     if not annotations:
-        raise FileNotFoundError("No annotation files found")
+        raise FileNotFoundError(
+            f"No annotation files found in {annotations_dir}"
+        )
 
     for annotation_path in annotations:
-        image_path = DATASET_DIR / "images" / f"{annotation_path.stem}.jpg"
+        image_path = dataset_dir / "images" / f"{annotation_path.stem}.jpg"
 
         # Для каждой аннотации должен существовать парный JPG с тем же именем.
         if not image_path.is_file():
@@ -52,7 +63,14 @@ def build_manifest() -> pd.DataFrame:
             if not line.strip():
                 continue
 
-            values = list(map(int, line.split(",")))
+            parts = line.strip().rstrip(",").split(",")
+
+            if len(parts) != 8:
+                raise ValueError(
+                    f"Expected 8 fields, got {len(parts)} in {annotation_path}: {line!r}"
+                )
+
+            values = list(map(int, parts))
 
             if len(values) != 8:
                 raise ValueError(f"Invalid annotation: {annotation_path}")
@@ -89,18 +107,33 @@ def build_manifest() -> pd.DataFrame:
 
 def main() -> None:
     """Сохранить CSV и связать его версию с запуском MLflow."""
-    df = build_manifest()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--split",
+        choices=["training", "validation"],
+        required=True,
+    )
+
+    args = parser.parse_args()
+
+    config = SPLITS[args.split]
+
+    dataset_dir = ROOT / "data" / config["folder"]
+    manifest_path = dataset_dir / "manifest.csv"
+
+    df = build_manifest(dataset_dir)
 
     # Фиксируем кодировку и переводы строк, от которых зависит хеш файла.
     df.to_csv(
-        MANIFEST_PATH,
+        manifest_path,
         index=False,
         encoding="utf-8",
         lineterminator="\n",
     )
 
     # Полный SHA-256 сохраняем в теге, первые 32 символа используем как digest.
-    full_digest = sha256_file(MANIFEST_PATH)
+    full_digest = sha256_file(manifest_path)
     digest = full_digest[:32]
 
     # Регистрация датасета использует тот же сервер и эксперимент, что и EDA.
@@ -110,18 +143,18 @@ def main() -> None:
     # Источник указывает на локальный манифест; его копия загружается как артефакт.
     dataset = mlflow.data.from_pandas(
         df,
-        source=MANIFEST_PATH.resolve().as_uri(),
+        source=manifest_path.resolve().as_uri(),
         name="visdrone2019-det-val",
         digest=digest,
     )
 
     # В одном run связываем входной датасет, манифест, источник и размер выборки.
-    with mlflow.start_run(run_name="dataset-tracking-validation"):
+    with mlflow.start_run(run_name=f"register-{args.split}"):
         mlflow.set_tag("manifest_sha256", full_digest)
-        mlflow.log_input(dataset, context="validation")
+        mlflow.log_input(dataset, context=args.split)
 
         mlflow.log_artifact(
-            str(MANIFEST_PATH),
+            str(manifest_path),
             artifact_path="dataset",
         )
 
