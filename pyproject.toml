@@ -33,6 +33,9 @@ dev = [
 eda = [
     "matplotlib>=3.11.2",
     "mlflow>=3.18.0",
+    "numpy>=2.5.4",
+    "pandas>=3.1.1",
+    "pillow>=13.0.0",
 ]
 web = [
     "asyncpg>=0.32.0",

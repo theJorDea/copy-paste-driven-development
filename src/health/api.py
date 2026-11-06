@@ -23,6 +23,7 @@ async def health_check() -> HealthStatusResponse:
 
 @router.get("/api/v1/ping")
 async def ping() -> dict[str, str]:
+    """Проверить доступность маршрута API без обращения к БД."""
     return {"message": "pong"}
 
 
