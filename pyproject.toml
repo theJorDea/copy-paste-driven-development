@@ -48,6 +48,7 @@ eda = [
 ]
 train = [
     "mlflow>=3.18.0",
+    "pandas>=3.1.1",
     "torch==2.15.0",
     "torchvision==0.29.2",
     "ultralytics>=8.4.203",
