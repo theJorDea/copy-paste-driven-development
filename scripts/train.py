@@ -1,4 +1,3 @@
-
 import argparse
 import os
 from pathlib import Path
@@ -10,9 +9,7 @@ DATASET_CONFIG = ROOT / "visdrone.yaml"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Train YOLO model on VisDrone dataset"
-    )
+    parser = argparse.ArgumentParser(description="Train YOLO model on VisDrone dataset")
 
     parser.add_argument("--model", default="yolo11n.pt")
     parser.add_argument("--name", default="baseline-yolo11n")
