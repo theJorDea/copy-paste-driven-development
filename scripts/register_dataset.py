@@ -45,9 +45,7 @@ def build_manifest(dataset_dir: Path) -> pd.DataFrame:
     annotations = sorted(annotations_dir.glob("*.txt"))
 
     if not annotations:
-        raise FileNotFoundError(
-            f"No annotation files found in {annotations_dir}"
-        )
+        raise FileNotFoundError(f"No annotation files found in {annotations_dir}")
 
     for annotation_path in annotations:
         image_path = dataset_dir / "images" / f"{annotation_path.stem}.jpg"
