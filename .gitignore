@@ -2,6 +2,7 @@
 .venv/
 .env
 .env.*
+!.env.example
 
 # Python
 __pycache__/
@@ -11,7 +12,16 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .coverage
-/data
+
+# ML datasets and generated results
+/data/
+/runs/
+/outputs/
+yolo11n.pt
+
+# MLflow local storage
+/mlruns/
+/mlflow.db
 
 # Local logs
 *.log
