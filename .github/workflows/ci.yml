@@ -38,7 +38,7 @@ jobs:
         run: uv run --locked ruff format --check .
 
       - name: Unit tests and coverage
-        run: uv run --locked pytest -m "not integration"
+        run: uv run --locked python -m pytest -m "not integration"
 
   integration:
     name: Docker integration tests
@@ -63,7 +63,7 @@ jobs:
         run: uv sync --locked
 
       - name: Run integration tests
-        run: uv run --locked pytest -m integration
+        run: uv run --locked python -m pytest -m integration
 
   publish:
     name: Publish Docker image
