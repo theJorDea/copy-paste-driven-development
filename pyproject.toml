@@ -7,7 +7,11 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "mlflow>=3.18.0",
+    "pillow>=13.0.0",
     "pydantic>=2.14.1",
+    "python-multipart>=0.0.33",
+    "ultralytics>=8.4.211",
 ]
 readme = "README.md"
 
@@ -19,8 +23,14 @@ build-backend = "uv_build"
 module-name = "health"
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu132" }
-torchvision = { index = "pytorch-cu132" }
+torch = [
+    { index = "pytorch-cu132", marker = "sys_platform == 'win32'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
+]
+torchvision = [
+    { index = "pytorch-cu132", marker = "sys_platform == 'win32'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
+]
 
 [tool.uv]
 default-groups = ["web", "dev"]
@@ -28,6 +38,11 @@ default-groups = ["web", "dev"]
 [[tool.uv.index]]
 name = "pytorch-cu132"
 url = "https://download.pytorch.org/whl/cu132"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [dependency-groups]
@@ -51,7 +66,6 @@ train = [
     "pandas>=3.1.1",
     "torch==2.15.0",
     "torchvision==0.29.2",
-    "ultralytics>=8.4.203",
 ]
 web = [
     "asyncpg>=0.32.0",

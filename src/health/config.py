@@ -30,3 +30,8 @@ class Settings(BaseSettings):
 
     environment: Environment = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    mlflow_tracking_uri: str = "http://127.0.0.1:5000"
+    model_name: str = "visdrone-yolo"
+    model_alias: str = "champion"
+    model_device: str = "cpu"
+    model_confidence: float = Field(default=0.25, ge=0, le=1)

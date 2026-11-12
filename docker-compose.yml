@@ -40,11 +40,16 @@ services:
       resources:
         limits:
           cpus: "1.0"
-          memory: 512M
+          memory: 2G
     environment:
       DATABASE__DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/mlops"
       LOG_LEVEL: INFO
       ENVIRONMENT: development
+      MLFLOW_TRACKING_URI: http://host.docker.internal:5000
+      MODEL_NAME: visdrone-yolo
+      MODEL_ALIAS: champion
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     depends_on:

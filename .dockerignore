@@ -9,3 +9,9 @@ __pycache__
 .env.*
 !.env.example
 *.log
+data/
+runs/
+outputs/
+mlruns/
+mlflow.db
+*.pt

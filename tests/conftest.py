@@ -27,6 +27,7 @@ def database(monkeypatch):
     monkeypatch.setenv("LOG_LEVEL", "INFO")
     # Локальный .env разработчика не должен влиять на тесты.
     monkeypatch.setitem(main.Settings.model_config, "env_file", None)
+    monkeypatch.setattr(main, "load_model", MagicMock(return_value=(MagicMock(), "1")))
 
     connection = MagicMock()
     connection.fetchval = AsyncMock(return_value="17.0")

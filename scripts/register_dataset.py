@@ -70,9 +70,6 @@ def build_manifest(dataset_dir: Path) -> pd.DataFrame:
 
             values = list(map(int, parts))
 
-            if len(values) != 8:
-                raise ValueError(f"Invalid annotation: {annotation_path}")
-
             # Координаты, усечение и перекрытие не участвуют в подсчёте объектов.
             _x, _y, w, h, score, category, _truncation, _occlusion = values
 
@@ -142,7 +139,7 @@ def main() -> None:
     dataset = mlflow.data.from_pandas(
         df,
         source=manifest_path.resolve().as_uri(),
-        name="visdrone2019-det-val",
+        name=config["dataset_name"],
         digest=digest,
     )
 

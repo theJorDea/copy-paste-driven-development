@@ -5,13 +5,16 @@ import json
 import subprocess
 import uuid
 from importlib.metadata import version
+from io import BytesIO
 from pathlib import Path
 
 import asyncpg
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
+import mlflow
 from health.main import app
 
 pytestmark = pytest.mark.integration
@@ -28,8 +31,21 @@ def stack(tmp_path_factory, pytestconfig):
         "services:\n"
         "  app:\n"
         '    ports: !override ["127.0.0.1::8000"]\n'
+        "    environment:\n      MLFLOW_TRACKING_URI: http://mlflow:5000\n"
         "  postgres:\n"
-        '    ports: !override ["127.0.0.1::5432"]\n',
+        '    ports: !override ["127.0.0.1::5432"]\n'
+        "  mlflow:\n"
+        "    image: ghcr.io/mlflow/mlflow:v3.16.1\n"
+        "    networks: [mlops-network]\n"
+        '    ports: ["127.0.0.1::5000"]\n'
+        '    command: ["mlflow", "server", "--host", "0.0.0.0", '
+        '"--backend-store-uri", "sqlite:////tmp/mlflow.db", '
+        '"--artifacts-destination", "file:///tmp/artifacts", "--serve-artifacts", '
+        '"--allowed-hosts", "*"]\n'
+        "    healthcheck:\n"
+        '      test: ["CMD", "python", "-c", "import urllib.request; '
+        "urllib.request.urlopen('http://127.0.0.1:5000/health')\"]\n"
+        "      interval: 2s\n      timeout: 3s\n      retries: 30\n",
         encoding="utf-8",
     )
     project = f"health-test-{uuid.uuid4().hex[:10]}"
@@ -75,7 +91,38 @@ def stack(tmp_path_factory, pytestconfig):
             )
         else:
             compose("build", timeout=600)
-        compose("up", "--no-build", "--detach", "--wait", "--wait-timeout", "120", timeout=180)
+        compose(
+            "up", "--detach", "--wait", "--wait-timeout", "120", "postgres", "mlflow", timeout=180
+        )
+        tracking_uri = f"http://{compose('port', 'mlflow', '5000')}"
+
+        class TestModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input, params=None):
+                return {
+                    "image_width": model_input.width,
+                    "image_height": model_input.height,
+                    "detections": [],
+                }
+
+        old_tracking_uri = mlflow.get_tracking_uri()
+        try:
+            mlflow.set_tracking_uri(tracking_uri)
+            with mlflow.start_run():
+                info = mlflow.pyfunc.log_model(
+                    name="test-model",
+                    python_model=TestModel(),
+                    model_config={"device": "cpu", "confidence": 0.25},
+                    pip_requirements=[],
+                )
+                model = mlflow.register_model(info.model_uri, "visdrone-yolo")
+            mlflow.MlflowClient().set_registered_model_alias(
+                "visdrone-yolo", "champion", model.version
+            )
+        finally:
+            mlflow.set_tracking_uri(old_tracking_uri)
+        compose(
+            "up", "--no-build", "--detach", "--wait", "--wait-timeout", "120", "app", timeout=180
+        )
         app_address = compose("port", "app", "8000")
         db_address = compose("port", "postgres", "5432")
         yield compose, f"http://{app_address}", f"postgresql://postgres:postgres@{db_address}/mlops"
@@ -144,6 +191,7 @@ def test_local_application_with_real_postgres(stack, monkeypatch):
     monkeypatch.setenv("DATABASE__DB_POOL_MIN_SIZE", "0")
     monkeypatch.setenv("DATABASE__DB_POOL_MAX_SIZE", "3")
     monkeypatch.setenv("DATABASE__DB_COMMAND_TIMEOUT", "5")
+    monkeypatch.setattr("health.main.load_model", lambda settings: (None, "1"))
     expected_version = asyncio.run(database_version(dsn))
 
     with TestClient(app) as client:
@@ -156,8 +204,39 @@ def test_local_application_with_real_postgres(stack, monkeypatch):
     assert pool.is_closing()
 
 
-def test_container_reports_database_outage_and_recovery(stack):
+def test_container_changes_model_after_alias_switch_and_restart(stack):
     compose, url, _ = stack
+    registry = mlflow.MlflowClient(tracking_uri=f"http://{compose('port', 'mlflow', '5000')}")
+    image = BytesIO()
+    Image.new("RGB", (32, 24)).save(image, format="PNG")
+
+    def predict():
+        response = httpx.post(
+            f"{url}/process",
+            files={"file": ("image.png", image.getvalue(), "image/png")},
+            timeout=15,
+        )
+        assert response.status_code == 200
+        result = response.json()
+        assert result["image_width"] == 32
+        assert result["image_height"] == 24
+        assert result["detections"] == []
+        return result["model_version"]
+
+    first = registry.get_model_version_by_alias("visdrone-yolo", "champion")
+    assert predict() == first.version
+    second = registry.create_model_version("visdrone-yolo", first.source, run_id=first.run_id)
+    registry.set_registered_model_alias("visdrone-yolo", "champion", second.version)
+    assert predict() == first.version
+    compose("restart", "app")
+    compose("up", "--detach", "--wait", "--wait-timeout", "120", "app", timeout=150)
+    url = f"http://{compose('port', 'app', '8000')}"
+    assert predict() == second.version
+
+
+def test_container_reports_database_outage_and_recovery(stack):
+    compose, _, _ = stack
+    url = f"http://{compose('port', 'app', '8000')}"
     compose("stop", "postgres")
     try:
         with httpx.Client(base_url=url, timeout=10) as client:

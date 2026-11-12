@@ -82,14 +82,6 @@ for annotation_path in annotations:
         if category in VEHICLE_CLASSES:
             vehicle_count += 1
 
-        relative_area = (w * h) / (image_width * image_height) * 100
-
-        relative_areas.append(relative_area)
-        objects_count += 1
-
-        if category in VEHICLE_CLASSES:
-            vehicle_count += 1
-
     # Каждый элемент списков соответствует одному файлу из annotations.
     objects_per_image.append(objects_count)
     vehicles_per_image.append(vehicle_count)
