@@ -14,6 +14,7 @@ RUN apt-get update \
 
 COPY README.md ./
 COPY src/ ./src/
+COPY scripts/ ./scripts/
 
 RUN uv sync --frozen --no-default-groups --group web --group train \
     && useradd --create-home appuser

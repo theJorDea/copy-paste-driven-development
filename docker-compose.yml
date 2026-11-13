@@ -1,5 +1,25 @@
 
 services:
+  rabbitmq:
+    image: rabbitmq:4.1-management
+    command: ["/bin/sh", "-c", "rabbitmq-plugins enable --offline rabbitmq_prometheus && rabbitmq-server"]
+    environment:
+      RABBITMQ_DEFAULT_USER: app
+      RABBITMQ_DEFAULT_PASS: app-local
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "15692:15692"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [mlops-network]
+    restart: unless-stopped
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
   postgres:
     image: postgres:16-alpine
     deploy:
@@ -48,12 +68,22 @@ services:
       MLFLOW_TRACKING_URI: http://host.docker.internal:5000
       MODEL_NAME: visdrone-yolo
       MODEL_ALIAS: champion
+      TASKS_ENABLED: "true"
+      RABBITMQ_URL: amqp://app:app-local@rabbitmq:5672/
+      OTEL_SERVICE_NAME: api
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-always_on}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      TASK_QUEUE_LIMIT: ${TASK_QUEUE_LIMIT:-100}
+      TASKS_BACKPRESSURE_ENABLED: ${TASKS_BACKPRESSURE_ENABLED:-true}
+      RETRY_AFTER_SECONDS: ${RETRY_AFTER_SECONDS:-2}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test:
@@ -77,8 +107,87 @@ services:
       - mlops-network
     restart: unless-stopped
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["uv", "run", "--no-sync", "python", "-m", "health.worker"]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+    environment:
+      DATABASE__DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/mlops"
+      RABBITMQ_URL: amqp://app:app-local@rabbitmq:5672/
+      MLFLOW_TRACKING_URI: http://host.docker.internal:5000
+      MODEL_NAME: visdrone-yolo
+      MODEL_ALIAS: champion
+      MODEL_DEVICE: cpu
+      INFERENCE_SECONDS: ${INFERENCE_SECONDS:-0}
+      WORKER_PREFETCH: "1"
+      TASK_QUEUE_LIMIT: ${TASK_QUEUE_LIMIT:-100}
+      TASKS_BACKPRESSURE_ENABLED: ${TASKS_BACKPRESSURE_ENABLED:-true}
+      TASK_MAX_ATTEMPTS: ${TASK_MAX_ATTEMPTS:-3}
+      TASK_RETRY_DELAY_MS: ${TASK_RETRY_DELAY_MS:-1000}
+      WORKER_GRACEFUL_TIMEOUT: ${WORKER_GRACEFUL_TIMEOUT:-300}
+      LOG_LEVEL: INFO
+      OTEL_SERVICE_NAME: worker
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-always_on}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    expose: ["8001", "8081"]
+    stop_grace_period: 5m
+    healthcheck:
+      test:
+        - CMD
+        - uv
+        - run
+        - --no-sync
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5m
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [mlops-network]
+    restart: unless-stopped
+
+  source:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["uv", "run", "--no-sync", "python", "-X", "utf8", "scripts/task_source.py", "/data/visdrone/images", "--endpoint", "http://app:8000"]
+    profiles: [batch-source]
+    environment:
+      LOG_LEVEL: INFO
+      API_URL: http://app:8000
+      PUSHGATEWAY_URL: ${PUSHGATEWAY_URL:-}
+      OTEL_SERVICE_NAME: source
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-always_on}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${SOURCE_OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [mlops-network]
+
 volumes:
   postgres-data:
+  rabbitmq-data:
 
 networks:
   mlops-network:

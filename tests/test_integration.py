@@ -212,7 +212,7 @@ def test_container_changes_model_after_alias_switch_and_restart(stack):
 
     def predict():
         response = httpx.post(
-            f"{url}/process",
+            f"{url}/api/v1/infer",
             files={"file": ("image.png", image.getvalue(), "image/png")},
             timeout=15,
         )

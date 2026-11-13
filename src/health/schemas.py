@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class HealthStatusResponse(BaseModel):
@@ -37,3 +37,21 @@ class InferenceResponse(BaseModel):
     image_height: int
     count: int
     detections: list[Detection]
+
+
+class TaskRequest(BaseModel):
+    """Изображение в base64 для асинхронной пакетной обработки."""
+
+    image_base64: str = Field(min_length=1, max_length=14_000_000)
+
+
+class TaskAccepted(BaseModel):
+    task_id: str
+    status: str
+
+
+class TaskStatus(BaseModel):
+    task_id: str
+    status: str
+    result: dict | None = None
+    error: str | None = None

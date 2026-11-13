@@ -24,7 +24,7 @@ def test_process_uses_loaded_model_and_returns_version(client):
     detector.predict.return_value = {"image_width": 16, "image_height": 12, "detections": []}
     for _ in range(2):
         response = client.post(
-            "/process", files={"file": ("frame.png", image_bytes(), "image/png")}
+            "/api/v1/infer", files={"file": ("frame.png", image_bytes(), "image/png")}
         )
         assert response.status_code == 200
         assert response.json() == {
@@ -46,7 +46,7 @@ def test_process_uses_loaded_model_and_returns_version(client):
     ids=["empty", "not-image", "too-large"],
 )
 def test_process_rejects_invalid_uploads(client, content, code):
-    response = client.post("/process", files={"file": ("bad.png", content, "image/png")})
+    response = client.post("/api/v1/infer", files={"file": ("bad.png", content, "image/png")})
     assert response.status_code == code
     main.app.state.detector.predict.assert_not_called()
 

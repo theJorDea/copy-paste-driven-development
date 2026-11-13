@@ -1,0 +1,20 @@
+groups:
+  - name: pipeline
+    interval: 15s
+    rules:
+      - alert: InferenceQueueAlmostFull
+        expr: max by (queue) (rabbitmq_detailed_queue_messages_ready{queue="inference.tasks"}) / max by (queue) (pipeline_queue_limit{queue="inference.tasks"}) > 0.9
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Inference queue is above 90% capacity
+          description: Queue has remained above 90% of its configured ready-message limit for one minute.
+      - alert: InferenceDeadLetterQueueNotEmpty
+        expr: max by (queue) (rabbitmq_detailed_queue_messages_ready{queue="inference.tasks.dlq"}) > 0
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: Messages are waiting in the inference DLQ
+          description: Inspect the task_id and error in JSON logs and the task status endpoint.
